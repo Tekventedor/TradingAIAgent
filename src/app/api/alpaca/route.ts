@@ -149,7 +149,6 @@ export async function GET(request: NextRequest) {
       
       case 'portfolio-history': {
         // Get portfolio history from tradingbot account - hourly data for detailed chart
-        // Use 1M (1 month) to capture all October trades from Oct 6 onwards
         const cacheKey = 'alpaca-portfolio-history';
         const now = Date.now();
 
@@ -161,20 +160,198 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(cached.data);
         }
 
-        // Fetch fresh data
+        // Fetch fresh data with fallback logic
         console.log(`🌐 Portfolio History: Fetching fresh data from Alpaca...`);
-        const history = await alpacaRequest('/v2/account/portfolio/history?period=1M&timeframe=1H');
 
-        const responseData = {
-          equity: history.equity,
-          timestamp: history.timestamp,
-        };
+        try {
+          // Try 3M period first (Alpaca-supported period to cover Oct-Nov)
+          console.log(`🔍 Attempting portfolio history: period=3M, timeframe=1H`);
+          const history = await alpacaRequest('/v2/account/portfolio/history?period=3M&timeframe=1H');
 
-        // Cache for 5 minutes
-        memoryCache[cacheKey] = { data: responseData, timestamp: now };
-        console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} data points)`);
+          const responseData = {
+            equity: history.equity,
+            timestamp: history.timestamp,
+          };
 
-        return NextResponse.json(responseData);
+          // Cache for 5 minutes
+          memoryCache[cacheKey] = { data: responseData, timestamp: now };
+          console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} data points, 3M period)`);
+
+          return NextResponse.json(responseData);
+        } catch (error) {
+          console.log(`⚠️ Portfolio History: 3M failed, trying 'all' period...`);
+          console.error('3M Error:', error instanceof Error ? error.message : String(error));
+
+          try {
+            // Try 'all' to get maximum available history
+            const history = await alpacaRequest('/v2/account/portfolio/history?period=all&timeframe=1H');
+
+            const responseData = {
+              equity: history.equity,
+              timestamp: history.timestamp,
+            };
+
+            memoryCache[cacheKey] = { data: responseData, timestamp: now };
+            console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} points, ALL period)`);
+
+            return NextResponse.json(responseData);
+          } catch (allError) {
+            console.log(`⚠️ Portfolio History: 'all' failed, trying 1M period...`);
+            console.error('ALL Error:', allError instanceof Error ? allError.message : String(allError));
+
+            try {
+              // Fallback to 1M period
+              const history = await alpacaRequest('/v2/account/portfolio/history?period=1M&timeframe=1H');
+
+              const responseData = {
+                equity: history.equity,
+                timestamp: history.timestamp,
+              };
+
+              memoryCache[cacheKey] = { data: responseData, timestamp: now };
+              console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} points, 1M period)`);
+
+              return NextResponse.json(responseData);
+            } catch (fallbackError) {
+              console.log(`⚠️ Portfolio History: 1M failed, trying 1D timeframe...`);
+              console.error('1M Error details:', fallbackError instanceof Error ? fallbackError.message : String(fallbackError));
+
+              try {
+                // Try with daily timeframe instead of hourly (might have more historical data)
+                const history = await alpacaRequest('/v2/account/portfolio/history?period=1M&timeframe=1D');
+
+                const responseData = {
+                  equity: history.equity,
+                  timestamp: history.timestamp,
+                };
+
+                memoryCache[cacheKey] = { data: responseData, timestamp: now };
+                console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} points, 1M/1D)`);
+
+                return NextResponse.json(responseData);
+              } catch (dailyError) {
+                console.log(`⚠️ Portfolio History: 1M/1D failed, trying 1W...`);
+
+                try {
+                  // Final fallback to 1W period
+                  const history = await alpacaRequest('/v2/account/portfolio/history?period=1W&timeframe=1H');
+
+                  const responseData = {
+                    equity: history.equity,
+                    timestamp: history.timestamp,
+                  };
+
+                  memoryCache[cacheKey] = { data: responseData, timestamp: now };
+                  console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} points, 1W period)`);
+
+                  return NextResponse.json(responseData);
+                } catch (finalError) {
+                  console.log(`⚠️ Portfolio History: All Alpaca methods failed, reconstructing from orders...`);
+
+                  try {
+                    // Reconstruct portfolio history from orders
+                    // Get orders to reconstruct timeline
+                    const ordersResponse = await alpacaRequest('/v2/orders?status=filled&limit=500&direction=asc');
+
+                    if (!ordersResponse || ordersResponse.length === 0) {
+                      console.log(`❌ No filled orders found, returning empty data`);
+                      const emptyData = { equity: [], timestamp: [] };
+                      return NextResponse.json(emptyData);
+                    }
+
+                    // Get current account for cash balance
+                    const account = await alpacaRequest('/v2/account');
+                    const startingCash = 100000; // Assuming $100k starting capital
+
+                    // Sort orders chronologically
+                    const sortedOrders = ordersResponse.sort((a: any, b: any) =>
+                      new Date(a.filled_at || a.submitted_at).getTime() - new Date(b.filled_at || b.submitted_at).getTime()
+                    );
+
+                    const firstOrderTime = new Date(sortedOrders[0].filled_at || sortedOrders[0].submitted_at);
+                    const now = new Date();
+
+                    // Create hourly data points from first trade to now
+                    const dataPoints = [];
+                    const currentTime = new Date(firstOrderTime);
+                    currentTime.setMinutes(0, 0, 0); // Round to hour
+
+                    let cash = startingCash;
+                    const positions: Record<string, { quantity: number; avgPrice: number }> = {};
+
+                    // Process each hour
+                    while (currentTime <= now) {
+                      const pointTimestamp = currentTime.getTime();
+
+                      // Apply all trades that happened before or at this point
+                      sortedOrders.forEach((order: any) => {
+                        const orderTime = new Date(order.filled_at || order.submitted_at).getTime();
+                        const previousPoint = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].timestamp : 0;
+
+                        if (orderTime > previousPoint && orderTime <= pointTimestamp) {
+                          const symbol = order.symbol;
+                          const quantity = parseFloat(order.filled_qty || order.qty);
+                          const price = parseFloat(order.filled_avg_price);
+
+                          if (order.side === 'buy') {
+                            cash -= quantity * price;
+                            if (!positions[symbol]) {
+                              positions[symbol] = { quantity: 0, avgPrice: 0 };
+                            }
+                            const totalQty = positions[symbol].quantity + quantity;
+                            positions[symbol].avgPrice =
+                              ((positions[symbol].avgPrice * positions[symbol].quantity) + (price * quantity)) / totalQty;
+                            positions[symbol].quantity = totalQty;
+                          } else {
+                            cash += quantity * price;
+                            if (positions[symbol]) {
+                              positions[symbol].quantity -= quantity;
+                              if (positions[symbol].quantity <= 0) {
+                                delete positions[symbol];
+                              }
+                            }
+                          }
+                        }
+                      });
+
+                      // Calculate portfolio value (use average price as approximation)
+                      let equityValue = cash;
+                      Object.entries(positions).forEach(([symbol, pos]) => {
+                        equityValue += pos.quantity * pos.avgPrice;
+                      });
+
+                      dataPoints.push({
+                        timestamp: pointTimestamp,
+                        equity: Math.round(equityValue * 100) / 100
+                      });
+
+                      // Move to next hour
+                      currentTime.setHours(currentTime.getHours() + 1);
+                    }
+
+                    const responseData = {
+                      equity: dataPoints.map(p => p.equity),
+                      timestamp: dataPoints.map(p => Math.floor(p.timestamp / 1000))
+                    };
+
+                    memoryCache[cacheKey] = { data: responseData, timestamp: now };
+                    console.log(`✅ Portfolio History: Reconstructed from orders (${responseData.equity.length} points)`);
+
+                    return NextResponse.json(responseData);
+                  } catch (reconstructError) {
+                    console.error(`❌ Portfolio reconstruction failed:`, reconstructError);
+
+                    // Return empty data so dashboard doesn't crash
+                    const emptyData = { equity: [], timestamp: [] };
+                    memoryCache[cacheKey] = { data: emptyData, timestamp: now };
+
+                    return NextResponse.json(emptyData);
+                  }
+                }
+              }
+            }
+          }
+        }
       }
       
       case 'orders': {
@@ -190,9 +367,9 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(cached.data);
         }
 
-        // Fetch fresh data
+        // Fetch fresh data - increased limit to 500 to capture all historical trades
         console.log(`🌐 Orders: Fetching fresh data from Alpaca...`);
-        const orders = await alpacaRequest('/v2/orders?status=all&limit=100&direction=desc');
+        const orders = await alpacaRequest('/v2/orders?status=all&limit=500&direction=desc');
 
         // Cache for 5 minutes
         memoryCache[cacheKey] = { data: orders, timestamp: now };

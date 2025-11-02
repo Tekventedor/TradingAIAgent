@@ -444,6 +444,39 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
     }
   });
 
+  // Calculate entry prices for all symbols (for dynamic tooltip calculations)
+  const entryPrices: Record<string, number> = {};
+  allTradedSymbols.forEach(symbol => {
+    if (!symbol) return;
+    const symbolTrades = tradingLogs.filter(log => log.symbol === symbol);
+    const buys = symbolTrades.filter(t => t.action === 'BUY' && t.price);
+    if (buys.length > 0) {
+      entryPrices[symbol] = buys.reduce((sum, t) => sum + (t.price as number), 0) / buys.length;
+    }
+  });
+
+  // Track quantities at each point for P&L calculation
+  const quantitiesAtPoint: Record<string, Record<string, number>> = {}; // { timestamp: { symbol: quantity } }
+
+  portfolioHistory.forEach((point) => {
+    const pointTime = point.timestamp;
+    const quantities: Record<string, number> = {};
+
+    tradingLogs.forEach((log) => {
+      const symbol = log.symbol as string;
+      const logTime = log.timestamp ? new Date(log.timestamp as string).getTime() : 0;
+
+      if (logTime <= pointTime && symbol) {
+        const positionAfter = log.positionAfter as number | undefined;
+        if (positionAfter !== undefined) {
+          quantities[symbol] = positionAfter;
+        }
+      }
+    });
+
+    quantitiesAtPoint[pointTime.toString()] = quantities;
+  });
+
   // Calculate historical chart data for ALL trades (including closed positions)
   const historicalTradesData = portfolioHistory.map((point) => {
     const result: Record<string, string | number> = { date: point.date, total: point.value };
@@ -519,6 +552,97 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
       }
     }
   });
+
+  // Custom Tooltip Component for Dynamic P&L Calculation
+  const CustomStockTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    const dataPoint = payload[0].payload;
+    const timestamp = portfolioHistory.find(p => p.date === dataPoint.date)?.timestamp;
+
+    if (!timestamp) return null;
+
+    const quantities = quantitiesAtPoint[timestamp.toString()] || {};
+
+    return (
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        borderRadius: '8px',
+        padding: '8px 12px',
+        color: '#111827'
+      }}>
+        <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>{dataPoint.date}</p>
+        {payload
+          .sort((a: any, b: any) => b.value - a.value)
+          .map((entry: any) => {
+            const symbol = entry.name;
+            const value = entry.value;
+            const quantity = quantities[symbol] || 0;
+            const entryPrice = entryPrices[symbol] || 0;
+
+            let pnl = 0;
+            if (quantity > 0 && entryPrice > 0) {
+              const currentPrice = value / quantity;
+              pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
+            }
+
+            return (
+              <div key={symbol} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <span style={{ color: entry.stroke, fontWeight: 'bold' }}>{symbol}:</span>
+                <span>${value.toLocaleString()} ({pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%)</span>
+              </div>
+            );
+          })}
+      </div>
+    );
+  };
+
+  // Custom Tooltip for Historical Trades (same logic, different chart)
+  const CustomHistoricalTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    const dataPoint = payload[0].payload;
+    const timestamp = portfolioHistory.find(p => p.date === dataPoint.date)?.timestamp;
+
+    if (!timestamp) return null;
+
+    const quantities = quantitiesAtPoint[timestamp.toString()] || {};
+
+    return (
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        borderRadius: '8px',
+        padding: '8px 12px',
+        color: '#111827'
+      }}>
+        <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>{dataPoint.date}</p>
+        {payload
+          .filter((entry: any) => entry.value !== null && entry.value !== undefined)
+          .sort((a: any, b: any) => b.value - a.value)
+          .map((entry: any) => {
+            const symbol = entry.name;
+            const value = entry.value;
+            const quantity = quantities[symbol] || 0;
+            const entryPrice = entryPrices[symbol] || 0;
+
+            let pnl = 0;
+            if (quantity > 0 && entryPrice > 0) {
+              const currentPrice = value / quantity;
+              pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
+            }
+
+            return (
+              <div key={symbol} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <span style={{ color: entry.stroke, fontWeight: 'bold' }}>{symbol}:</span>
+                <span>${value.toLocaleString()} ({pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%)</span>
+              </div>
+            );
+          })}
+      </div>
+    );
+  };
 
   // VERIFICATION LOGGING - Check data for each stock
   console.log('\n========== STOCK DATA VERIFICATION ==========');
@@ -652,10 +776,9 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
           </div>
         </div>
 
-        {/* Main Performance Chart - 60/40 Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 mb-8">
-          {/* Stock Performance Chart - 60% width */}
-          <div className="lg:col-span-6 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        {/* Stock Performance Chart - Full Width */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Stock Performance (AI Trades)</h3>
               <div className="text-sm text-gray-600">
@@ -664,19 +787,19 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 </span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={500}>
-              <LineChart data={agentPerformanceHistory.length > 0 ? agentPerformanceHistory : portfolioHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6B7280"
-                  style={{ fontSize: '10px' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                  minTickGap={30}
-                />
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width={Math.max((agentPerformanceHistory.length || portfolioHistory.length) * 15, 1000)} height={500}>
+                <LineChart data={agentPerformanceHistory.length > 0 ? agentPerformanceHistory : portfolioHistory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6B7280"
+                    style={{ fontSize: '10px' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    interval={0}
+                  />
                 <YAxis
                   stroke="#6B7280"
                   scale="log"
@@ -685,22 +808,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                   tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
                   style={{ fontSize: '12px' }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    color: '#111827'
-                  }}
-                  formatter={(value: number, name: string) => {
-                    const pnl = agentPnLPercent[name] || 0;
-                    return [`$${value.toLocaleString()} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%)`, `${name}`];
-                  }}
-                  itemSorter={(item: any) => {
-                    // Sort by value descending (highest at top)
-                    return -item.value;
-                  }}
-                />
+                <Tooltip content={<CustomStockTooltip />} />
                 {positions.map((pos, index) => pos.symbol && (
                   <Line
                     key={pos.symbol}
@@ -714,6 +822,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 ))}
               </LineChart>
             </ResponsiveContainer>
+            </div>
             {/* Stock Performance Legend - Current positions only */}
             <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-2">
               {positions.slice(0, 9).map((pos, originalIndex) => {
@@ -739,9 +848,11 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
               })}
             </div>
           </div>
+        </div>
 
-          {/* Activity Log - 30% width */}
-          <div className="lg:col-span-3 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        {/* Activity Log - Full Width */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <div className="flex items-center space-x-2 mb-4">
               <Activity className="w-5 h-5 text-purple-600" />
               <h3 className="text-lg font-semibold text-gray-900">Activity Log</h3>
@@ -892,10 +1003,10 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
           </div>
         </div>
 
-        {/* Portfolio Performance & Distribution Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Portfolio Value History */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+        {/* Portfolio Performance & Distribution Row - 70/30 split */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 mb-8">
+          {/* Portfolio Value History - 70% */}
+          <div className="lg:col-span-7 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Portfolio Value</h3>
               {portfolioHistory.length > 0 && (() => {
@@ -922,10 +1033,19 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 );
               })()}
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={portfolioHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="date" stroke="#6B7280" style={{ fontSize: '12px' }} />
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width={Math.max(portfolioHistory.length * 15, 800)} height={300}>
+                <LineChart data={portfolioHistory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6B7280"
+                    style={{ fontSize: '10px' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    interval={0}
+                  />
                 <YAxis
                   stroke="#6B7280"
                   domain={[90000, 110000]}
@@ -1034,10 +1154,11 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
-          {/* Agent Distribution */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+          {/* Agent Distribution - 30% */}
+          <div className="lg:col-span-3 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Agent Distribution</h3>
             {positions.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -1133,19 +1254,19 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
           {/* Right Side - Historical Trades Chart (70% width) */}
           <div className="lg:col-span-7 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Historical Trades (All Positions)</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={historicalTradesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6B7280"
-                  style={{ fontSize: '10px' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  interval={0}
-                  minTickGap={30}
-                />
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width={Math.max(historicalTradesData.length * 15, 1000)} height={400}>
+                <LineChart data={historicalTradesData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6B7280"
+                    style={{ fontSize: '10px' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    interval={0}
+                  />
                 <YAxis
                   stroke="#6B7280"
                   scale="log"
@@ -1154,18 +1275,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                   tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
                   style={{ fontSize: '12px' }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    color: '#111827'
-                  }}
-                  formatter={(value: number, name: string) => {
-                    const pnl = historicalPnLPercent[name] || 0;
-                    return [`$${value.toLocaleString()} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%)`, `${name}`];
-                  }}
-                />
+                <Tooltip content={<CustomHistoricalTooltip />} />
                 {allTradedSymbols.map((symbol, index) => symbol && (
                   <Line
                     key={symbol}
@@ -1181,6 +1291,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 ))}
               </LineChart>
             </ResponsiveContainer>
+            </div>
             {/* Historical Trades Legend - All traded stocks */}
             <div className="mt-4 grid grid-cols-4 gap-x-3 gap-y-2">
               {allTradedSymbols.map((symbol, originalIndex) => {
@@ -1248,16 +1359,19 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 );
               })()}
             </div>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={sp500Data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6B7280"
-                  style={{ fontSize: '12px' }}
-                  interval="preserveStartEnd"
-                  minTickGap={50}
-                />
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width={Math.max(portfolioHistory.length * 15, 1000)} height={350}>
+                <LineChart data={sp500Data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6B7280"
+                    style={{ fontSize: '10px' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    interval={0}
+                  />
                 <YAxis
                   stroke="#6B7280"
                   tickFormatter={(value) => `${value.toFixed(1)}%`}
@@ -1381,6 +1495,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
             <div className="mt-4 flex items-center justify-center space-x-6 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-0.5 bg-purple-500"></div>
@@ -1433,16 +1548,19 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 );
               })()}
             </div>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={nasdaq100Data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6B7280"
-                  style={{ fontSize: '12px' }}
-                  interval="preserveStartEnd"
-                  minTickGap={50}
-                />
+            <div className="overflow-x-auto">
+              <ResponsiveContainer width={Math.max(portfolioHistory.length * 15, 1000)} height={350}>
+                <LineChart data={nasdaq100Data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#6B7280"
+                    style={{ fontSize: '10px' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    interval={0}
+                  />
                 <YAxis
                   stroke="#6B7280"
                   tickFormatter={(value) => `${value.toFixed(1)}%`}
@@ -1566,6 +1684,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
                 />
               </LineChart>
             </ResponsiveContainer>
+            </div>
             <div className="mt-4 flex items-center justify-center space-x-6 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-0.5 bg-purple-500"></div>
@@ -1639,7 +1758,7 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
       {/* Reasoning Modal */}
       {modalReasoning && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4"
           onClick={() => {
             setModalReasoning(null);
             // Also collapse the expanded state
