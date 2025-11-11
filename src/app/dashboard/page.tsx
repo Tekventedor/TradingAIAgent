@@ -7,7 +7,11 @@ import StaticDashboard from "@/components/StaticDashboard";
 // API functions for Alpaca data
 async function fetchAlpacaData(endpoint: string) {
   try {
-    const response = await fetch(`/api/alpaca?endpoint=${endpoint}`);
+    // Add cache-busting timestamp to ensure fresh data
+    const cacheBuster = Date.now();
+    const response = await fetch(`/api/alpaca?endpoint=${endpoint}&_t=${cacheBuster}`, {
+      cache: 'no-store'
+    });
     if (!response.ok) throw new Error('Failed to fetch data');
     return await response.json();
   } catch (error) {
@@ -108,6 +112,28 @@ export default function TradingDashboard() {
       const ordersData = await fetchAlpacaData('orders');
       const historyData = await fetchAlpacaData('portfolio-history');
 
+      // Extend portfolio history to today if Alpaca data is stale
+      if (historyData?.equity && historyData?.timestamp && Array.isArray(historyData.equity) && historyData.equity.length > 0 && accountData?.equity) {
+        const lastTimestamp = historyData.timestamp[historyData.timestamp.length - 1];
+        const lastTimestampMs = lastTimestamp * 1000;
+        const now = Date.now();
+
+        // If last data point is more than 1 hour old, fill in hourly points to now
+        if (now - lastTimestampMs > 60 * 60 * 1000) {
+          const currentEquity = parseFloat(accountData.equity);
+          const hoursToFill = Math.ceil((now - lastTimestampMs) / (60 * 60 * 1000));
+
+          // Add hourly points from last timestamp to now
+          for (let i = 1; i <= hoursToFill; i++) {
+            const newTimestamp = lastTimestampMs + (i * 60 * 60 * 1000);
+            historyData.timestamp.push(Math.floor(newTimestamp / 1000));
+            historyData.equity.push(currentEquity);
+          }
+
+          console.log(`📈 Extended portfolio history: Added ${hoursToFill} hourly points to ${new Date(now).toISOString()}`);
+        }
+      }
+
       // Fetch SPY and QQQ data if we have portfolio history
       let spyData = null;
       let qqqData = null;
@@ -115,16 +141,25 @@ export default function TradingDashboard() {
           Array.isArray(historyData.equity) && historyData.equity.length > 0) {
 
         const portfolioStartTimestamp = historyData.timestamp[0] * 1000;
-        const portfolioEndTimestamp = historyData.timestamp[historyData.timestamp.length - 1] * 1000;
+
+        // Always fetch up to today
+        const now = Date.now();
+        const portfolioEndTimestamp = Math.max(
+          historyData.timestamp[historyData.timestamp.length - 1] * 1000,
+          now
+        );
 
         const startDate = new Date(portfolioStartTimestamp - (24 * 60 * 60 * 1000)); // 1 day buffer
-        const endDate = new Date(portfolioEndTimestamp);
+        const endDate = new Date(portfolioEndTimestamp + (24 * 60 * 60 * 1000)); // 1 day buffer
 
         const startISO = startDate.toISOString();
         const endISO = endDate.toISOString();
 
         // Fetch SPY data
-        const spyResponse = await fetch(`/api/alpaca?endpoint=spy-bars&start=${startISO}&end=${endISO}`);
+        const cacheBuster = Date.now();
+        const spyResponse = await fetch(`/api/alpaca?endpoint=spy-bars&start=${startISO}&end=${endISO}&_t=${cacheBuster}`, {
+          cache: 'no-store'
+        });
 
         if (spyResponse.ok) {
           const spyHistory = await spyResponse.json();
@@ -134,7 +169,9 @@ export default function TradingDashboard() {
         }
 
         // Fetch QQQ data
-        const qqqResponse = await fetch(`/api/alpaca?endpoint=qqq-bars&start=${startISO}&end=${endISO}`);
+        const qqqResponse = await fetch(`/api/alpaca?endpoint=qqq-bars&start=${startISO}&end=${endISO}&_t=${cacheBuster}`, {
+          cache: 'no-store'
+        });
 
         if (qqqResponse.ok) {
           const qqqHistory = await qqqResponse.json();
@@ -154,20 +191,28 @@ export default function TradingDashboard() {
         const uniqueSymbols = Array.from(new Set(allSymbols));
 
         const portfolioStartTimestamp = historyData.timestamp[0] * 1000;
-        const portfolioEndTimestamp = historyData.timestamp[historyData.timestamp.length - 1] * 1000;
+
+        // Always fetch up to today to ensure we have the latest data
+        const now = Date.now();
+        const portfolioEndTimestamp = Math.max(
+          historyData.timestamp[historyData.timestamp.length - 1] * 1000,
+          now
+        );
 
         const startDate = new Date(portfolioStartTimestamp - (24 * 60 * 60 * 1000)); // 1 day buffer
-        const endDate = new Date(portfolioEndTimestamp);
+        const endDate = new Date(portfolioEndTimestamp + (24 * 60 * 60 * 1000)); // 1 day buffer
 
         const startISO = startDate.toISOString();
         const endISO = endDate.toISOString();
 
         // Fetch data for each stock in parallel
+        const stockCacheBuster = Date.now();
         await Promise.all(
           uniqueSymbols.map(async (symbol) => {
             try {
               const response = await fetch(
-                `/api/alpaca?endpoint=stock-bars&symbol=${symbol}&start=${startISO}&end=${endISO}`
+                `/api/alpaca?endpoint=stock-bars&symbol=${symbol}&start=${startISO}&end=${endISO}&_t=${stockCacheBuster}`,
+                { cache: 'no-store' }
               );
 
               if (response.ok) {
@@ -234,7 +279,10 @@ export default function TradingDashboard() {
       // Fetch reasoning data from Google Sheet
       let reasoningData = [];
       try {
-        const reasoningResponse = await fetch('/api/reasoning');
+        const reasoningCacheBuster = Date.now();
+        const reasoningResponse = await fetch(`/api/reasoning?_t=${reasoningCacheBuster}`, {
+          cache: 'no-store'
+        });
         if (reasoningResponse.ok) {
           reasoningData = await reasoningResponse.json();
         }

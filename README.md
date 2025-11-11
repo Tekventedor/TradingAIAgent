@@ -16,12 +16,20 @@ This dashboard visualizes the performance of an AI trading agent built with **Fl
 
 ### Core Dashboard
 - 🤖 **AI Trading Bot Integration** - Real-time data from Flowhunt AI agent
-- 📊 **Live Portfolio Metrics** - Portfolio value, P&L, market exposure, available cash
+- 📊 **Live Portfolio Metrics** - Portfolio value, P&L, invested in stocks, buying power
 - 📈 **Stock Performance Charts** - Multi-line charts showing current and historical positions
 - 📉 **Benchmark Comparisons** - AI performance vs. S&P 500 and NASDAQ-100
 - 💼 **Position Tracking** - Current holdings with live prices and unrealized P&L
 - 📝 **Activity Log** - Complete order history with AI reasoning for each trade
 - 🧠 **AI Reasoning Display** - Full decision logs from Google Sheets integration
+- 🎯 **Win Rate Tracking** - Percentage of profitable closed trades with color indicators
+
+### Advanced Features
+- 📅 **Historical Data Reconstruction** - Fills missing trade data from user logs (persistent_cache_2)
+- ⏱️ **Portfolio History Extension** - Automatically fills gaps from last API data to current time
+- 📊 **Smart Trade Filtering** - Stock lines only display during actual holding periods
+- 🎯 **Custom Tooltips** - Centered on cursor with dynamic height, respects chart boundaries
+- 🔄 **Date Mapping System** - Corrects order submission vs execution date discrepancies
 
 ### Performance Features
 - 🔄 **Smart Caching** - In-memory caching for all API data (Alpaca 5min, market data 7 days)
@@ -92,8 +100,9 @@ Open http://localhost:3000/dashboard
 ### 1. **Header Stats Cards**
 - 💰 Total Balance (Cash + holdings)
 - 📈 Week Return (7-day performance)
-- 📊 Market Exposure (% invested)
-- 💵 Available to Invest (uninvested cash)
+- 📊 Invested in Stocks (% of portfolio in stocks)
+- 💵 Buying Power (cash available for new trades)
+- 🎯 Win Rate (% of profitable closed trades with color coding)
 
 ### 2. **Stock Performance Chart** (60% width)
 - Multi-line chart showing individual stock performance
@@ -116,8 +125,10 @@ Open http://localhost:3000/dashboard
 ### 5. **Historical Trades Chart** (70% width)
 - Shows ALL trades ever made (including closed positions)
 - Dotted lines for historical positions
-- Lines "cut off" when position closes
-- Stats cards on the left (2-Day Return, Future Metric)
+- **Smart filtering**: Lines only appear during actual holding periods (first buy to last sell)
+- Lines automatically "cut off" when position closes
+- Accurate P&L calculations based on actual trade windows
+- Stats cards on the left (2-Day Return, Win Rate)
 
 ### 6. **AI vs. S&P 500 Chart**
 - Purple line: AI Portfolio percentage return
@@ -182,6 +193,45 @@ Fetches AI reasoning logs from Google Sheets.
   }
 ]
 ```
+
+## 🔄 Data Reconstruction System
+
+### Historical Data Recovery
+
+The dashboard includes a sophisticated data reconstruction system in `persistent_cache_2/`:
+
+**Problem Solved:**
+- Alpaca paper trading data only goes back to Oct 10, 2025
+- Missing trades before that date (e.g., Oct 6 LRCX purchase)
+- Discrepancies between order submission dates and execution dates
+
+**Solution:**
+1. **Trade Reconstruction** - Missing trades reconstructed from user logs with reasoning
+2. **Date Mapping** - `user_log_date_mappings.json` corrects submission vs execution dates
+3. **Portfolio Snapshots** - Hourly snapshots with 2+ points per day minimum
+4. **Alpha Vantage Integration** - Historical price data for reconstructed trades
+
+**Files:**
+- `reconstructed_oct6_trade.json` - Missing LRCX trade (80 shares @ $141.91)
+- `user_log_date_mappings.json` - Order date corrections for LMND, AMCR, QURE
+- `daily_portfolio_snapshots_oct6-10.json` - Historical portfolio values
+- `RECONSTRUCTION_SUMMARY.md` - Full documentation of the process
+- `COMPARISON_TABLE.md` - Trade-by-trade verification
+
+### Portfolio History Extension
+
+The dashboard automatically extends portfolio history from the last Alpaca data point to the current time:
+
+```typescript
+// If last data point is > 1 hour old, fill hourly gaps
+const hoursToFill = Math.ceil((now - lastTimestampMs) / (60 * 60 * 1000));
+for (let i = 1; i <= hoursToFill; i++) {
+  historyData.timestamp.push(newTimestamp);
+  historyData.equity.push(currentEquity);
+}
+```
+
+This ensures graphs always show data up to the current moment, even when Alpaca data is stale.
 
 ## 💾 Caching System
 
@@ -251,9 +301,17 @@ This ensures all traded stocks appear on charts even without market data.
 
 ### Interactive Tooltips
 
+**Smart Positioning:**
+- Centered on cursor position (both X and Y axes)
+- Dynamic height calculation based on number of stocks displayed
+- Prevents overflow below x-axis (reserves 100px for date labels)
+- Prevents overflow off screen edges
+- Smooth following of cursor movement
+
+**Content:**
 - **Single trade**: Compact tooltip with trade details
 - **Multiple trades**: Expands to 4-column grid layout
-- **Shows**: Symbol, action, quantity, price, position change
+- **Shows**: Symbol, action, quantity, price, position change, P&L percentage
 
 ### Color Palette
 
@@ -426,4 +484,4 @@ MIT
 
 **📧 Questions?** See the blog posts for detailed implementation guides.
 
-**Last Updated**: October 31, 2024
+**Last Updated**: November 11, 2025

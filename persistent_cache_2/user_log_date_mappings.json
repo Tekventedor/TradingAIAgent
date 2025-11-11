@@ -1,0 +1,31 @@
+{
+  "date_mappings": {
+    "cfc3e5e5-b2cf-48be-bf8d-3ad057cd8646": {
+      "alpaca_order_id": "cfc3e5e5-b2cf-48be-bf8d-3ad057cd8646",
+      "symbol": "LMND",
+      "side": "sell",
+      "qty": 50,
+      "user_log_date": "2025-10-25T18:30:00.000Z",
+      "alpaca_filled_date": "2025-10-27T13:31:48.734675Z",
+      "note": "Order placed Oct 25 6:30 PM, filled Oct 27 1:31 PM"
+    },
+    "259d97bf-96ae-4eaf-b0ce-0c3f74911589": {
+      "alpaca_order_id": "259d97bf-96ae-4eaf-b0ce-0c3f74911589",
+      "symbol": "AMCR",
+      "side": "sell",
+      "qty": 800,
+      "user_log_date": "2025-10-29T13:30:00.000Z",
+      "alpaca_filled_date": "2025-11-03T14:31:01.255122Z",
+      "note": "Order placed Oct 29 1:30 PM, filled Nov 3 2:31 PM"
+    },
+    "dea00b0a-48df-494a-83f2-0413eaa83e14": {
+      "alpaca_order_id": "dea00b0a-48df-494a-83f2-0413eaa83e14",
+      "symbol": "QURE",
+      "side": "sell",
+      "qty": 83,
+      "user_log_date": "2025-10-31T14:35:00.000Z",
+      "alpaca_filled_date": "2025-11-01T14:35:46.097785Z",
+      "note": "Order placed Oct 31 2:35 PM, filled Nov 1 2:35 PM"
+    }
+  }
+}

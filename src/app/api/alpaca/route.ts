@@ -160,11 +160,11 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(cached.data);
         }
 
-        // Fetch fresh data with fallback logic
+        // Fetch fresh data with fallback logic (DO NOT merge with persistent cache - it has $0 values)
         console.log(`🌐 Portfolio History: Fetching fresh data from Alpaca...`);
 
         try {
-          // Try 3M period first (Alpaca-supported period to cover Oct-Nov)
+          // Try 3M period first (good balance of history and data availability)
           console.log(`🔍 Attempting portfolio history: period=3M, timeframe=1H`);
           const history = await alpacaRequest('/v2/account/portfolio/history?period=3M&timeframe=1H');
 
@@ -173,6 +173,15 @@ export async function GET(request: NextRequest) {
             timestamp: history.timestamp,
           };
 
+          // Log first and last data points for verification
+          if (responseData.equity && responseData.equity.length > 0) {
+            const firstDate = new Date(responseData.timestamp[0] * 1000).toISOString();
+            const lastDate = new Date(responseData.timestamp[responseData.timestamp.length - 1] * 1000).toISOString();
+            const firstValue = responseData.equity[0];
+            const lastValue = responseData.equity[responseData.equity.length - 1];
+            console.log(`📊 Portfolio History Data Range: ${firstDate} ($${firstValue}) → ${lastDate} ($${lastValue})`);
+          }
+
           // Cache for 5 minutes
           memoryCache[cacheKey] = { data: responseData, timestamp: now };
           console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} data points, 3M period)`);
@@ -180,7 +189,6 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(responseData);
         } catch (error) {
           console.log(`⚠️ Portfolio History: 3M failed, trying 'all' period...`);
-          console.error('3M Error:', error instanceof Error ? error.message : String(error));
 
           try {
             // Try 'all' to get maximum available history
@@ -191,16 +199,25 @@ export async function GET(request: NextRequest) {
               timestamp: history.timestamp,
             };
 
+            // Log first and last data points for verification
+            if (responseData.equity && responseData.equity.length > 0) {
+              const firstDate = new Date(responseData.timestamp[0] * 1000).toISOString();
+              const lastDate = new Date(responseData.timestamp[responseData.timestamp.length - 1] * 1000).toISOString();
+              const firstValue = responseData.equity[0];
+              const lastValue = responseData.equity[responseData.equity.length - 1];
+              console.log(`📊 Portfolio History Data Range: ${firstDate} ($${firstValue}) → ${lastDate} ($${lastValue})`);
+            }
+
             memoryCache[cacheKey] = { data: responseData, timestamp: now };
             console.log(`✅ Portfolio History: Cached for 5 minutes (${responseData.equity?.length || 0} points, ALL period)`);
 
             return NextResponse.json(responseData);
-          } catch (allError) {
-            console.log(`⚠️ Portfolio History: 'all' failed, trying 1M period...`);
-            console.error('ALL Error:', allError instanceof Error ? allError.message : String(allError));
+            } catch (allError) {
+              console.log(`⚠️ Portfolio History: 'all' failed, trying 1M fallback...`);
+              console.error('ALL Error:', allError instanceof Error ? allError.message : String(allError));
 
-            try {
-              // Fallback to 1M period
+              try {
+                // Fallback to 1M period
               const history = await alpacaRequest('/v2/account/portfolio/history?period=1M&timeframe=1H');
 
               const responseData = {
@@ -353,7 +370,7 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-      
+
       case 'orders': {
         // Get recent orders from tradingbot account - increased limit to capture all October trades
         const cacheKey = 'alpaca-orders';
@@ -367,9 +384,90 @@ export async function GET(request: NextRequest) {
           return NextResponse.json(cached.data);
         }
 
-        // Fetch fresh data - increased limit to 500 to capture all historical trades
+        // Fetch fresh data - MAXIMUM limit to capture ALL historical trades
         console.log(`🌐 Orders: Fetching fresh data from Alpaca...`);
-        const orders = await alpacaRequest('/v2/orders?status=all&limit=500&direction=desc');
+        const orders = await alpacaRequest('/v2/orders?status=all&limit=10000&direction=desc');
+
+        // Apply user log date mappings to correct dates that don't match user's logs
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const mappingsPath = path.join(process.cwd(), 'persistent_cache_2', 'user_log_date_mappings.json');
+
+          if (fs.existsSync(mappingsPath)) {
+            const mappingsData = JSON.parse(fs.readFileSync(mappingsPath, 'utf-8'));
+            const dateMappings = mappingsData.date_mappings;
+
+            // Apply date corrections to matching orders
+            orders.forEach((order: any) => {
+              if (dateMappings[order.id]) {
+                const mapping = dateMappings[order.id];
+                // Replace submitted_at with user's log date
+                order.submitted_at = mapping.user_log_date;
+                // Keep filled_at as is from Alpaca
+                console.log(`✅ Applied user log date for ${order.symbol} ${order.side}`);
+              }
+            });
+          }
+        } catch (error) {
+          console.log(`⚠️ Could not load date mappings:`, error);
+        }
+
+        // Inject reconstructed Oct 6 LRCX trade from persistent_cache_2
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const reconstructedPath = path.join(process.cwd(), 'persistent_cache_2', 'reconstructed_oct6_trade.json');
+
+          if (fs.existsSync(reconstructedPath)) {
+            const reconstructedData = JSON.parse(fs.readFileSync(reconstructedPath, 'utf-8'));
+            const reconstructedTrade = reconstructedData.reconstructed_trade;
+
+            // Format as Alpaca order structure
+            const reconstructedOrder = {
+              id: reconstructedTrade.id,
+              client_order_id: reconstructedTrade.id,
+              created_at: reconstructedTrade.timestamp,
+              updated_at: reconstructedTrade.timestamp,
+              submitted_at: reconstructedTrade.timestamp,
+              filled_at: reconstructedTrade.timestamp,
+              expired_at: null,
+              canceled_at: null,
+              failed_at: null,
+              replaced_at: null,
+              replaced_by: null,
+              replaces: null,
+              asset_id: 'RECONSTRUCTED',
+              symbol: reconstructedTrade.symbol,
+              asset_class: 'us_equity',
+              notional: null,
+              qty: reconstructedTrade.qty.toString(),
+              filled_qty: reconstructedTrade.qty.toString(),
+              filled_avg_price: reconstructedTrade.price.toString(),
+              order_class: '',
+              order_type: 'market',
+              type: 'market',
+              side: reconstructedTrade.side,
+              time_in_force: 'day',
+              limit_price: null,
+              stop_price: null,
+              status: 'filled',
+              extended_hours: false,
+              legs: null,
+              trail_percent: null,
+              trail_price: null,
+              hwm: null,
+              subtag: null,
+              source: null
+            };
+
+            // Add to orders array (it should appear at the end since it's the oldest)
+            orders.push(reconstructedOrder);
+            console.log(`✅ Added reconstructed Oct 6 LRCX trade to orders`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Could not load reconstructed trade:`, error);
+        }
 
         // Cache for 5 minutes
         memoryCache[cacheKey] = { data: orders, timestamp: now };

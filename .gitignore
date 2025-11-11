@@ -40,6 +40,9 @@ yarn-error.log*
 # backup folder
 .backup/
 
+# API cache (persistent across restarts)
+.cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

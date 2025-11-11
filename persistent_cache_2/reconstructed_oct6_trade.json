@@ -1,0 +1,38 @@
+{
+  "reconstructed_trade": {
+    "id": "RECONSTRUCTED-OCT6-LRCX",
+    "date": "2025-10-06",
+    "time": "16:45:00",
+    "timestamp": "2025-10-06T16:45:00.000Z",
+    "symbol": "LRCX",
+    "side": "buy",
+    "qty": 80,
+    "price": 141.91,
+    "total_cost": 11352.80,
+    "source": "USER_LOGS",
+    "reasoning": "Market conditions were favorable for semiconductors, driven by strong sector momentum and positive earnings reports. LRCX showed technical strength and relative outperformance compared to peers. Accumulated a total of 80 shares at an average price of $141.91, totaling $11,352.54, to capitalize on potential upside. Risk level assessed as moderate given recent volatility, and confidence in the trade is supported by robust data and trend alignment. Outlook remains cautiously optimistic with expectations for continued sector strength.",
+    "status": "filled",
+    "note": "This trade was not captured in Alpaca API (paper trading data starts Oct 10). Reconstructed from user trading logs with reasoning entry."
+  },
+  "verification": {
+    "logged_total": "$11,352.54",
+    "calculated_total": "$11,352.80",
+    "discrepancy": "$0.26",
+    "likely_reason": "Rounding or commission not captured in logs"
+  },
+  "impact_on_portfolio": {
+    "oct_24_lrcx_sale": {
+      "date": "2025-10-24T14:14:28Z",
+      "sold_qty": 80,
+      "sold_price": 151.35,
+      "sold_total": 12108.00,
+      "buy_date": "2025-10-06",
+      "buy_price": 141.91,
+      "buy_total": 11352.80,
+      "profit": 755.20,
+      "profit_percent": 6.65,
+      "holding_period_days": 18,
+      "note": "This P&L calculation depends on the Oct 6 purchase"
+    }
+  }
+}
