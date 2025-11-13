@@ -2218,8 +2218,14 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{modalReasoning.ticker}</h3>
                 <p className="text-sm text-gray-500">
-                  {new Date(modalReasoning.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
-                  {new Date(modalReasoning.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                  {modalReasoning.timestamp && !isNaN(new Date(modalReasoning.timestamp).getTime()) ? (
+                    <>
+                      {new Date(modalReasoning.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
+                      {new Date(modalReasoning.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                    </>
+                  ) : (
+                    'Date unavailable'
+                  )}
                 </p>
               </div>
               <button
