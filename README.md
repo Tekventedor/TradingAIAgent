@@ -4,13 +4,23 @@ A comprehensive trading dashboard that displays real-time data from an autonomou
 
 ## 🎯 Project Overview
 
-This dashboard visualizes the performance of an AI trading agent built with **Flowhunt** that autonomously:
-- Analyzes market conditions every hour
-- Makes BUY/SELL/HOLD decisions using Claude AI
+This dashboard visualizes the performance of an AI trading agent built with **Flowhunt** that autonomously runs **every 24 hours**:
+- Fetches live market data from the **last 24 hours only** (Polygon API)
+- Gathers news and sentiment via Google Search
+- Analyzes market conditions using AI (GPT-4 via FlowHunt)
+- Makes BUY/SELL/HOLD/SHORT decisions with full reasoning
 - Executes trades via Alpaca Paper Trading API
-- Logs all reasoning to Google Sheets for transparency
+- Logs all decisions and reasoning to Google Sheets for complete transparency
 
-**Results**: +1.85% return, outperforming S&P 500 by +3.05% in October 2024 (24 trades across 11 stocks)
+**Results**: +1.85% return, outperforming S&P 500 by +3.05% in October 2025 (24 trades across 11 stocks)
+
+### Key Architecture Features:
+- **24-Hour Cycle**: Agent runs once per day, analyzing only fresh data from the last 24 hours
+- **Multi-Source Data**: Combines Polygon (market data), Google Search (news/sentiment), Alpaca (portfolio state)
+- **Autonomous Execution**: Fully hands-off trading with risk management rules built-in
+- **Complete Audit Trail**: Every decision logged to Google Sheets with timestamp, reasoning, and confidence score
+- **Shorting Capability**: Agent can short stocks on high confidence + downtrend signals
+- **Data Reconstruction**: Dashboard fills missing historical data using logs and synthetic generation
 
 ## ✨ Features
 
@@ -63,8 +73,8 @@ TradingAIAgent/
 │       └── StaticDashboard.tsx       # Main dashboard component (1700+ lines)
 ├── public/
 │   └── flowhunt-logo.svg
-├── BLOG_PART_1_*.md                  # Blog posts about building the bot
-├── BLOG_PART_2_*.md                  # Blog posts about building the dashboard
+├── blog_images/                      # All dashboard and FlowHunt screenshots
+├── BLOG_COMPLETE_AI_TRADING_BOT.md  # Comprehensive blog (9,500 words)
 └── README.md                         # This file
 ```
 
@@ -384,12 +394,13 @@ npm run dev
 
 ## 📈 Performance Results
 
-**October 2024 Trading Summary:**
+**October 2025 Trading Summary:**
 - Starting Capital: $100,000
 - Ending Value: $101,847
 - Return: +1.85%
 - S&P 500 Return: -1.2%
 - **Outperformance: +3.05%**
+- NASDAQ-100 comparison also tracked
 
 **Trade Statistics:**
 - Total Trades: 24
@@ -444,9 +455,14 @@ npm run build
 
 ## 📚 Documentation
 
-See the comprehensive blog posts in this repository:
-- **BLOG_PART_1_*.md** - Building the Flowhunt trading bot (agent setup, AI reasoning, trade execution)
-- **BLOG_PART_2_*.md** - Building the performance dashboard (charts, caching, UI)
+See the comprehensive blog post in this repository:
+- **BLOG_COMPLETE_AI_TRADING_BOT.md** - Complete guide covering:
+  - Understanding FlowHunt platform
+  - Building the autonomous agent (24h cycle, data sources, decision logic)
+  - Evolution from v1 (analysis only) to v4 (with shorting)
+  - Building the Next.js dashboard (charts, caching, data reconstruction)
+  - Performance analysis and lessons learned
+  - 9,500 words, ~38 min read, with 21 screenshots
 
 ## 🔐 Security Notes
 
@@ -484,4 +500,12 @@ MIT
 
 **📧 Questions?** See the blog posts for detailed implementation guides.
 
-**Last Updated**: November 11, 2025
+**Last Updated**: November 14, 2025
+
+## 🆕 Recent Changes (November 2025)
+
+- ✅ Added NASDAQ-100 benchmark comparison (alongside S&P 500)
+- ✅ Combined blog posts into single comprehensive guide (BLOG_COMPLETE_AI_TRADING_BOT.md)
+- ✅ Added 21 screenshots showing FlowHunt agent and dashboard evolution
+- ✅ Updated README with 24-hour cycle architecture details
+- ✅ Improved documentation with shorting capability and data reconstruction details
