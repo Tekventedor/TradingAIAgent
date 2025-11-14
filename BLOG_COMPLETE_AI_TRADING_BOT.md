@@ -524,7 +524,9 @@ Similar to Stock Performance but shows ALL trades ever made, including closed po
 
 **Why separate from Stock Performance chart**: Current positions need continuous monitoring; historical trades are for analysis and pattern-finding.
 
-#### 6. Benchmark Comparison: AI vs S&P 500
+#### 6. Benchmark Comparison: AI vs S&P 500 and NASDAQ-100
+
+**October 10th Version - AI vs S&P 500:**
 
 ![S&P 500 vs AI Performance - October 10th version](blog_images/Screenshot 2025-10-17 at 23.06.59 -Website6.png)
 
@@ -534,9 +536,17 @@ Two lines:
 
 Both normalized to start at 0% on Oct 1, so you can see relative performance.
 
+**Current Version - AI vs S&P 500:**
+
+![AI vs S&P 500 - Current version](blog_images/Screenshot 2025-11-14 at 22.06.10 -Website14.png)
+
+**Current Version - AI vs NASDAQ-100:**
+
+![AI vs NASDAQ-100 - Current version](blog_images/Screenshot 2025-11-14 at 22.06.22 -Website15.png)
+
 **The verdict**: AI portfolio ended at +1.85%, S&P 500 at -1.20% → **Outperformance: +3.05%**
 
-**Why this matters**: Anyone can make money in a bull market. The real test is: did you beat the benchmark? Especially in a DOWN month (October 2025 was down), outperformance is meaningful.
+**Why this matters**: Anyone can make money in a bull market. The real test is: did you beat the benchmark? Especially in a DOWN month (October 2025 was down), outperformance is meaningful. The NASDAQ-100 comparison gives additional context since my portfolio includes tech stocks.
 
 #### 7. Agent Distribution Pie Chart
 
