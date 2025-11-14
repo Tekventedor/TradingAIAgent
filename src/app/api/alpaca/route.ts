@@ -532,9 +532,50 @@ export async function GET(request: NextRequest) {
           }
 
           console.log('⚠️ SPY: Alpha Vantage returned no valid data');
+
+          // Try loading fallback cache from persistent_cache_2
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const fallbackPath = path.join(process.cwd(), 'persistent_cache_2', 'spy_fallback.json');
+
+            if (fs.existsSync(fallbackPath)) {
+              const fallbackData = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+              console.log(`✅ SPY: Using fallback cache (${fallbackData.bars?.length || 0} bars)`);
+
+              // Cache the fallback data in memory
+              memoryCache[cacheKey] = { data: fallbackData, timestamp: now };
+
+              return NextResponse.json(fallbackData);
+            }
+          } catch (fallbackError) {
+            console.log('⚠️ SPY: Could not load fallback cache:', fallbackError);
+          }
+
           return NextResponse.json({ bars: null });
         } catch (error) {
           console.error('❌ SPY: Fetch error:', error);
+
+          // Try loading fallback cache on error
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const fallbackPath = path.join(process.cwd(), 'persistent_cache_2', 'spy_fallback.json');
+
+            if (fs.existsSync(fallbackPath)) {
+              const fallbackData = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+              console.log(`✅ SPY: Using fallback cache after error (${fallbackData.bars?.length || 0} bars)`);
+
+              // Cache the fallback data in memory
+              const now = Date.now();
+              memoryCache[cacheKey] = { data: fallbackData, timestamp: now };
+
+              return NextResponse.json(fallbackData);
+            }
+          } catch (fallbackError) {
+            console.log('⚠️ SPY: Could not load fallback cache:', fallbackError);
+          }
+
           return NextResponse.json({ bars: null }, { status: 200 });
         }
       }
@@ -595,9 +636,50 @@ export async function GET(request: NextRequest) {
           }
 
           console.log('⚠️ QQQ: Alpha Vantage returned no valid data');
+
+          // Try loading fallback cache from persistent_cache_2
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const fallbackPath = path.join(process.cwd(), 'persistent_cache_2', 'qqq_fallback.json');
+
+            if (fs.existsSync(fallbackPath)) {
+              const fallbackData = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+              console.log(`✅ QQQ: Using fallback cache (${fallbackData.bars?.length || 0} bars)`);
+
+              // Cache the fallback data in memory
+              memoryCache[cacheKey] = { data: fallbackData, timestamp: now };
+
+              return NextResponse.json(fallbackData);
+            }
+          } catch (fallbackError) {
+            console.log('⚠️ QQQ: Could not load fallback cache:', fallbackError);
+          }
+
           return NextResponse.json({ bars: null });
         } catch (error) {
           console.error('❌ QQQ: Fetch error:', error);
+
+          // Try loading fallback cache on error
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const fallbackPath = path.join(process.cwd(), 'persistent_cache_2', 'qqq_fallback.json');
+
+            if (fs.existsSync(fallbackPath)) {
+              const fallbackData = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+              console.log(`✅ QQQ: Using fallback cache after error (${fallbackData.bars?.length || 0} bars)`);
+
+              // Cache the fallback data in memory
+              const now = Date.now();
+              memoryCache[cacheKey] = { data: fallbackData, timestamp: now };
+
+              return NextResponse.json(fallbackData);
+            }
+          } catch (fallbackError) {
+            console.log('⚠️ QQQ: Could not load fallback cache:', fallbackError);
+          }
+
           return NextResponse.json({ bars: null }, { status: 200 });
         }
       }

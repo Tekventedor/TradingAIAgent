@@ -140,3 +140,8 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/intellij+all
 /hugo-export/static/trading-dashboard/
+
+# Old blog backups
+BLOG_PART_1_OLD_BACKUP.md
+BLOG_PART_2_OLD_BACKUP.md
+BLOG_PART_1_BUILDING_THE_FLOWHUNT_TRADING_BOT.md

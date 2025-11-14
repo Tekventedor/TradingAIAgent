@@ -392,54 +392,54 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
           new Date(bar.t).getTime() <= firstPortfolioTimestamp
         );
 
-        if (validSpyBars.length > 0) {
-          const initialSpyBar = validSpyBars.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
-            const prevDiff = firstPortfolioTimestamp - new Date(prev.t).getTime();
-            const currDiff = firstPortfolioTimestamp - new Date(curr.t).getTime();
-            return currDiff < prevDiff && currDiff >= 0 ? curr : prev;
-          });
-          const initialSpyPrice = initialSpyBar.c;
+        const initialSpyBar = validSpyBars.length > 0
+          ? validSpyBars.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
+              const prevDiff = firstPortfolioTimestamp - new Date(prev.t).getTime();
+              const currDiff = firstPortfolioTimestamp - new Date(curr.t).getTime();
+              return currDiff < prevDiff && currDiff >= 0 ? curr : prev;
+            })
+          : spyBars[0];
+        const initialSpyPrice = initialSpyBar.c;
 
-          // Calculate comparison data
-          const rawComparisonData = formattedHistoryOnePoint.map((item) => {
-            const itemTimestamp = item.timestamp;
-            const validBarsForPoint = spyBars.filter((bar: { t: string; c: number }) =>
-              new Date(bar.t).getTime() <= itemTimestamp
-            );
+        // Calculate comparison data
+        const rawComparisonData = formattedHistoryOnePoint.map((item) => {
+          const itemTimestamp = item.timestamp;
+          const validBarsForPoint = spyBars.filter((bar: { t: string; c: number }) =>
+            new Date(bar.t).getTime() <= itemTimestamp
+          );
 
-            const closestSpyBar = validBarsForPoint.length > 0
-              ? validBarsForPoint.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
-                  const prevTime = new Date(prev.t).getTime();
-                  const currTime = new Date(curr.t).getTime();
-                  return currTime > prevTime ? curr : prev;
-                })
-              : spyBars[0];
+          const closestSpyBar = validBarsForPoint.length > 0
+            ? validBarsForPoint.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
+                const prevTime = new Date(prev.t).getTime();
+                const currTime = new Date(curr.t).getTime();
+                return currTime > prevTime ? curr : prev;
+              })
+            : spyBars[0];
 
-            const spyReturn = ((closestSpyBar.c - initialSpyPrice) / initialSpyPrice) * 100;
-            const portfolioReturn = ((item.value - initialPortfolioValue) / initialPortfolioValue) * 100;
+          const spyReturn = ((closestSpyBar.c - initialSpyPrice) / initialSpyPrice) * 100;
+          const portfolioReturn = ((item.value - initialPortfolioValue) / initialPortfolioValue) * 100;
 
-            return {
-              date: item.date,
-              spyReturn,
-              portfolioReturn
-            };
-          });
+          return {
+            date: item.date,
+            spyReturn,
+            portfolioReturn
+          };
+        });
 
-          // Normalize to start at 0
-          let normalizedData: Array<{date: string, spyReturn: number, portfolioReturn: number}> = [];
-          if (rawComparisonData.length > 0) {
-            const firstSpyReturn = rawComparisonData[0].spyReturn;
-            const firstPortfolioReturn = rawComparisonData[0].portfolioReturn;
+        // Normalize to start at 0
+        let normalizedData: Array<{date: string, spyReturn: number, portfolioReturn: number}> = [];
+        if (rawComparisonData.length > 0) {
+          const firstSpyReturn = rawComparisonData[0].spyReturn;
+          const firstPortfolioReturn = rawComparisonData[0].portfolioReturn;
 
-            normalizedData = rawComparisonData.map((point, idx) => ({
-              date: point.date,
-              spyReturn: idx === 0 ? 0 : point.spyReturn - firstSpyReturn,
-              portfolioReturn: idx === 0 ? 0 : point.portfolioReturn - firstPortfolioReturn
-            }));
-          }
-
-          setSp500Data(normalizedData);
+          normalizedData = rawComparisonData.map((point, idx) => ({
+            date: point.date,
+            spyReturn: idx === 0 ? 0 : point.spyReturn - firstSpyReturn,
+            portfolioReturn: idx === 0 ? 0 : point.portfolioReturn - firstPortfolioReturn
+          }));
         }
+
+        setSp500Data(normalizedData);
       }
 
       // Process QQQ comparison data (use 1-point-per-day data)
@@ -453,54 +453,54 @@ export default function StaticDashboard({ data }: StaticDashboardProps) {
           new Date(bar.t).getTime() <= firstPortfolioTimestamp
         );
 
-        if (validQqqBars.length > 0) {
-          const initialQqqBar = validQqqBars.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
-            const prevDiff = firstPortfolioTimestamp - new Date(prev.t).getTime();
-            const currDiff = firstPortfolioTimestamp - new Date(curr.t).getTime();
-            return currDiff < prevDiff && currDiff >= 0 ? curr : prev;
-          });
-          const initialQqqPrice = initialQqqBar.c;
+        const initialQqqBar = validQqqBars.length > 0
+          ? validQqqBars.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
+              const prevDiff = firstPortfolioTimestamp - new Date(prev.t).getTime();
+              const currDiff = firstPortfolioTimestamp - new Date(curr.t).getTime();
+              return currDiff < prevDiff && currDiff >= 0 ? curr : prev;
+            })
+          : qqqBars[0];
+        const initialQqqPrice = initialQqqBar.c;
 
-          // Calculate comparison data
-          const rawComparisonData = formattedHistoryOnePoint.map((item) => {
-            const itemTimestamp = item.timestamp;
-            const validBarsForPoint = qqqBars.filter((bar: { t: string; c: number }) =>
-              new Date(bar.t).getTime() <= itemTimestamp
-            );
+        // Calculate comparison data
+        const rawComparisonData = formattedHistoryOnePoint.map((item) => {
+          const itemTimestamp = item.timestamp;
+          const validBarsForPoint = qqqBars.filter((bar: { t: string; c: number }) =>
+            new Date(bar.t).getTime() <= itemTimestamp
+          );
 
-            const closestQqqBar = validBarsForPoint.length > 0
-              ? validBarsForPoint.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
-                  const prevTime = new Date(prev.t).getTime();
-                  const currTime = new Date(curr.t).getTime();
-                  return currTime > prevTime ? curr : prev;
-                })
-              : qqqBars[0];
+          const closestQqqBar = validBarsForPoint.length > 0
+            ? validBarsForPoint.reduce((prev: { t: string; c: number }, curr: { t: string; c: number }) => {
+                const prevTime = new Date(prev.t).getTime();
+                const currTime = new Date(curr.t).getTime();
+                return currTime > prevTime ? curr : prev;
+              })
+            : qqqBars[0];
 
-            const qqqReturn = ((closestQqqBar.c - initialQqqPrice) / initialQqqPrice) * 100;
-            const portfolioReturn = ((item.value - initialPortfolioValue) / initialPortfolioValue) * 100;
+          const qqqReturn = ((closestQqqBar.c - initialQqqPrice) / initialQqqPrice) * 100;
+          const portfolioReturn = ((item.value - initialPortfolioValue) / initialPortfolioValue) * 100;
 
-            return {
-              date: item.date,
-              qqqReturn,
-              portfolioReturn
-            };
-          });
+          return {
+            date: item.date,
+            qqqReturn,
+            portfolioReturn
+          };
+        });
 
-          // Normalize to start at 0
-          let normalizedData: Array<{date: string, qqqReturn: number, portfolioReturn: number}> = [];
-          if (rawComparisonData.length > 0) {
-            const firstQqqReturn = rawComparisonData[0].qqqReturn;
-            const firstPortfolioReturn = rawComparisonData[0].portfolioReturn;
+        // Normalize to start at 0
+        let normalizedData: Array<{date: string, qqqReturn: number, portfolioReturn: number}> = [];
+        if (rawComparisonData.length > 0) {
+          const firstQqqReturn = rawComparisonData[0].qqqReturn;
+          const firstPortfolioReturn = rawComparisonData[0].portfolioReturn;
 
-            normalizedData = rawComparisonData.map((point, idx) => ({
-              date: point.date,
-              qqqReturn: idx === 0 ? 0 : point.qqqReturn - firstQqqReturn,
-              portfolioReturn: idx === 0 ? 0 : point.portfolioReturn - firstPortfolioReturn
-            }));
-          }
-
-          setNasdaq100Data(normalizedData);
+          normalizedData = rawComparisonData.map((point, idx) => ({
+            date: point.date,
+            qqqReturn: idx === 0 ? 0 : point.qqqReturn - firstQqqReturn,
+            portfolioReturn: idx === 0 ? 0 : point.portfolioReturn - firstPortfolioReturn
+          }));
         }
+
+        setNasdaq100Data(normalizedData);
       }
     }
   }, [mounted, data]);
